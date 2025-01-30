@@ -4,11 +4,18 @@ import { Source } from '../entities/source.entity';
 import { Article } from '../entities/article.entity';
 import { FindManyOptions, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ArticleQuery } from '../dto/retreiveArticle.dto';
-import { link } from 'fs';
+import { ArticleQuery } from '../interfaces/retreiveArticle.interface';
+import { ScrappingResults } from '../interfaces/scrappingResults.interface';
+
 
 @Injectable()
 export class ScrapperService {
+
+    private sources = {fca:{
+        root_url:"http://127.0.0.1:5500/News-search-results%20_%20FCA.html",
+        // search_url: (query:string)=>`https://www.fca.org.uk/news/search-results?n_search_term=${query}`,
+        search_url: (query:string)=>`http://localhost:5500/News%20search%20results%20_%20FCA%20with%20query.html`,
+    }}
 
     constructor(
         @InjectRepository(Source) private sourceRepository:Repository<Source>,
@@ -17,9 +24,10 @@ export class ScrapperService {
 
     // To initiate scrapping process
     async startScrapping(){
-        this.fcaNews()
+        this.fcaNews(this.sources.fca.root_url)
     }
 
+    // To fetch articles based on query
     async getArticles(articleQuery:ArticleQuery){
         var options: FindManyOptions<Article> 
         if(articleQuery.date){
@@ -36,11 +44,23 @@ export class ScrapperService {
         return await this.articleRepository.find(options)
     }
 
-    // To fetch list of articles from FCA
-    private async fcaNews() {
-        
-        let url:string = "http://127.0.0.1:5500/News-search-results%20_%20FCA.html"
+    // To delete articles based on query
+    async deleteArticles(articleQuery:ArticleQuery): Promise<number>{
+        let entities = await this.getArticles(articleQuery);
+        return (await this.articleRepository.remove(entities)).length
+    }
 
+    // To scrap on query
+    async scrapOnQuery(query:string): Promise<ScrappingResults>{
+        return this.fcaNews(this.sources.fca.search_url(query))
+    }
+    // ----------------------------------- Scrapping Code --------------------------------------
+    // To fetch list of articles from FCA
+    private async fcaNews(url:string): Promise<ScrappingResults>{
+        let scrappingResults: ScrappingResults = {
+            total: 0,
+            new: 0
+        }
         // Starting a headless browser and navigating to the url
         let browser:Browser = await puppeteer.launch()
         let page:Page = await browser.newPage()
@@ -60,22 +80,27 @@ export class ScrapperService {
             // Format of scrapped date "Published: DD/MM/YYYY"
             let date_pub:Array<string> = ((await element.$eval(".published-date", p => p.innerHTML)).slice(11)).split("/")
             // getting or creating a new article entity
-            let article: Article = await this.articleRepository.findOne({where:{url:anchor[1]}}) ?? this.articleRepository.create({
-                title: anchor[0],
-                url: anchor[1],
-                date_published: new Date(parseInt(date_pub[2]), parseInt(date_pub[1])-1, parseInt(date_pub[0])+1),
-                content: await this.fcaContent(anchor[1]),
-                source_id: source
-            })
-            if(source.articles){
-                source.articles.push(article)
+            if(await this.articleRepository.exists({where:{url:anchor[1]}})){
+                scrappingResults.new++
             } else {
-                source.articles = new Array<Article>(article)
+                let article: Article = this.articleRepository.create({
+                    title: anchor[0],
+                    url: anchor[1],
+                    date_published: new Date(parseInt(date_pub[2]), parseInt(date_pub[1])-1, parseInt(date_pub[0])+1),
+                    content: await this.fcaContent(anchor[1]),
+                    source_id: source
+                })
+                if(source.articles){
+                    source.articles.push(article)
+                } else {
+                    source.articles = new Array<Article>(article)
+                }
             }
+            scrappingResults.total++
         }
         this.sourceRepository.save(source)
         browser.close()
-
+        return scrappingResults
     }
     
     // To fetch content of FCA articles

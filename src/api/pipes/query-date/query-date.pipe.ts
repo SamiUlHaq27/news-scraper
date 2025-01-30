@@ -1,5 +1,5 @@
 import { ArgumentMetadata, Injectable, PipeTransform } from '@nestjs/common';
-import { ArticleQuery } from 'src/api/dto/retreiveArticle.dto';
+import { ArticleQuery } from 'src/api/interfaces/retreiveArticle.interface';
 import { Query } from 'typeorm/driver/Query';
 
 
