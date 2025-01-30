@@ -7,19 +7,19 @@ export class Article {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({nullable:false})
+  @Column({type:'text'})
   title: string;
 
-  @Column({type:'text', nullable:false, unique:true})
+  @Column({type:'text', unique:true})
   url: string;
   
-  @Column({type:'text', nullable:false})
+  @Column({type:'text', nullable:true})
   media_url: string;
 
-  @Column({type:'text', nullable:false})
+  @Column({type:'text', nullable:true})
   content: string;
   
-  @Column({type:'date', nullable:false})
+  @Column({type:'date'})
   date_published: Date;
   
   @Column({type:'timestamp', default:() => "CURRENT_TIMESTAMP"})

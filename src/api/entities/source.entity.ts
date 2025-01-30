@@ -4,6 +4,7 @@ import { Article } from './article.entity';
 
 @Entity()
 export class Source {
+
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -16,6 +17,6 @@ export class Source {
   @Column({type:'timestamp', default:() => "CURRENT_TIMESTAMP"})
   created_at: Timestamp;
 
-  @OneToMany(()=>Article, (Article)=>Article.source_id)
+  @OneToMany(()=>Article, (Article)=>Article.source_id, {cascade:true})
   articles: Array<Article>
 }
