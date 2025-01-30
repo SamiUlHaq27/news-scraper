@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import puppeteer, { Browser, Page } from "puppeteer"
 import { Source } from '../entities/source.entity';
 import { Article } from '../entities/article.entity';
-import { FindManyOptions, Repository } from 'typeorm';
+import { FindManyOptions, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ArticleQuery } from '../dto/retreiveArticle.dto';
+import { link } from 'fs';
 
 @Injectable()
 export class ScrapperService {
@@ -18,7 +20,19 @@ export class ScrapperService {
         this.fcaNews()
     }
 
-    async getArticles(options:FindManyOptions<Article> = {}){
+    async getArticles(articleQuery:ArticleQuery){
+        var options: FindManyOptions<Article> 
+        if(articleQuery.date){
+            options = {where:[
+                {title:Like(`%${articleQuery.query}%`), date_published:articleQuery.date},
+                {content:Like(`%${articleQuery.query}%`), date_published:articleQuery.date}
+            ]}
+        } else {
+            options = {where:[
+                {title:Like(`%${articleQuery.query}%`)},
+                {content:Like(`%${articleQuery.query}%`)}
+            ]}
+        }
         return await this.articleRepository.find(options)
     }
 
