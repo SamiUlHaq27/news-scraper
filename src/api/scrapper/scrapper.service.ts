@@ -12,9 +12,8 @@ import { ScrappingResults } from '../interfaces/scrappingResults.interface';
 export class ScrapperService {
 
     private sources = {fca:{
-        root_url:"http://127.0.0.1:5500/News-search-results%20_%20FCA.html",
-        // search_url: (query:string)=>`https://www.fca.org.uk/news/search-results?n_search_term=${query}`,
-        search_url: (query:string)=>`http://localhost:5500/News%20search%20results%20_%20FCA%20with%20query.html`,
+        root_url:(page:number)=>`https://www.fca.org.uk/news/search-results?category=press%20releases&start=${((page-1)*10)+1}`,
+        search_url: (query:string)=>`https://www.fca.org.uk/news/search-results?n_search_term=${query}`,
     }}
 
     constructor(
@@ -24,7 +23,11 @@ export class ScrapperService {
 
     // To initiate scrapping process
     async startScrapping(){
-        this.fcaNews(this.sources.fca.root_url)
+        for(let i=1;i < 11;i++){
+            console.log("Starting Scrapping Page # "+i);
+            await this.fcaNews(this.sources.fca.root_url(i))
+            console.log("Finished Scrapping Page # "+i);
+        }
     }
 
     // To fetch articles based on query
@@ -54,6 +57,7 @@ export class ScrapperService {
     async scrapOnQuery(query:string): Promise<ScrappingResults>{
         return this.fcaNews(this.sources.fca.search_url(query))
     }
+
     // ----------------------------------- Scrapping Code --------------------------------------
     // To fetch list of articles from FCA
     private async fcaNews(url:string): Promise<ScrappingResults>{
@@ -67,7 +71,7 @@ export class ScrapperService {
         await page.goto(url)
         
         // Getting or creating new source entity
-        var source: Source = await await this.sourceRepository.findOneBy({name:"fca"}) ?? this.sourceRepository.create({
+        let source: Source = await this.sourceRepository.findOneBy({name:"fca"}) ?? this.sourceRepository.create({
             name: "fca",
             url: url,
             articles: new Array<Article>()
@@ -87,7 +91,7 @@ export class ScrapperService {
                     title: anchor[0],
                     url: anchor[1],
                     date_published: new Date(parseInt(date_pub[2]), parseInt(date_pub[1])-1, parseInt(date_pub[0])+1),
-                    content: await this.fcaContent(anchor[1]),
+                    // content: await this.fcaContent(anchor[1]),
                     source_id: source
                 })
                 if(source.articles){
@@ -98,7 +102,7 @@ export class ScrapperService {
             }
             scrappingResults.total++
         }
-        this.sourceRepository.save(source)
+        await this.sourceRepository.save(source)
         browser.close()
         return scrappingResults
     }
